@@ -1,0 +1,8 @@
+{
+  "name": "Socratic Math Tutor",
+  "description": "A compassionate AI tutor that guides students through math problems using the Socratic method and image analysis.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
