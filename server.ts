@@ -2,7 +2,7 @@ import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
-import Stripe from "stripe";
+import axios from "axios";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -14,19 +14,6 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  // Initialize Stripe lazily
-  let stripe: Stripe | null = null;
-  const getStripe = () => {
-    if (!stripe) {
-      if (!process.env.STRIPE_SECRET_KEY) {
-        console.warn("STRIPE_SECRET_KEY is not defined in the environment.");
-        return null;
-      }
-      stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-    }
-    return stripe;
-  };
-
   app.use(express.json());
 
   // API Routes
@@ -34,40 +21,46 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  // Stripe Checkout Session Creation
-  app.post("/api/create-checkout-session", async (req, res) => {
-    const s = getStripe();
-    if (!s) {
-      return res.status(500).json({ error: "Stripe is not configured." });
+  // Paystack Transaction Initialization
+  app.post("/api/create-payment", async (req, res) => {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: "Email is required." });
+    }
+
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      console.warn("PAYSTACK_SECRET_KEY is not defined.");
+      return res.status(500).json({ error: "Paystack is not configured." });
     }
 
     try {
-      const session = await (s.checkout.sessions.create as any)({
-        line_items: [
-          {
-            price_data: {
-              currency: "usd",
-              product_data: {
-                name: "Socratic Math Tutor - Lifetime Access",
-                description: "One-time payment for full platform access.",
-              },
-              unit_amount: 10000, // $100.00
-            },
-            quantity: 1,
+      const response = await axios.post(
+        "https://api.paystack.co/transaction/initialize",
+        {
+          email,
+          amount: 10000 * 100, // $100.00 in cents/kobo (Paystack uses smallest unit)
+          callback_url: `${req.headers.origin}/?payment=success`,
+          metadata: {
+            cancel_action: `${req.headers.origin}/?payment=cancel`,
           },
-        ],
-        mode: "payment",
-        automatic_payment_methods: {
-          enabled: true,
         },
-        success_url: `${req.headers.origin}/?payment=success`,
-        cancel_url: `${req.headers.origin}/?payment=cancel`,
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-      res.status(200).json({ sessionId: session.id, url: session.url });
+      if (response.data.status) {
+        res.status(200).json({ url: response.data.data.authorization_url });
+      } else {
+        res.status(400).json({ error: response.data.message });
+      }
     } catch (err: any) {
-      console.error("Stripe Session Error:", err.message);
-      res.status(500).json({ error: err.message });
+      console.error("Paystack Error:", err.response?.data?.message || err.message);
+      res.status(500).json({ error: err.response?.data?.message || err.message });
     }
   });
 
