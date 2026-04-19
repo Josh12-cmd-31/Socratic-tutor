@@ -1,16 +1,18 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BrainCircuit, GraduationCap, RefreshCw, ChevronRight } from 'lucide-react';
+import { Sparkles, BrainCircuit, GraduationCap, RefreshCw, ChevronRight, LayoutGrid, Clock, Lock } from 'lucide-react';
 import { ChatBubble } from './components/ChatBubble';
 import { MathInput } from './components/MathInput';
 import { GlossaryOverlay } from './components/GlossaryOverlay';
 import { VoiceChatMode } from './components/VoiceChatMode';
 import { PaymentButton } from './components/PaymentButton';
+import { TopicsOverlay } from './components/TopicsOverlay';
 import { chatStream, type Message } from './lib/gemini';
 import { MATH_TOPICS, type MathTopic } from './constants';
 import { cn } from '@/lib/utils';
 import { speak, stopSpeaking } from './lib/speech';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { getTrialState, setPaidStatus, type TrialState } from './lib/trial';
 import confetti from 'canvas-confetti';
 
 const WELCOME_MESSAGES = [
@@ -26,8 +28,10 @@ export default function App() {
   const [selectedVoice, setSelectedVoice] = useState<"male" | "female">("female");
   const [isVoiceChatMode, setIsVoiceChatMode] = useState(false);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
+  const [isTopicsOpen, setIsTopicsOpen] = useState(false);
   const [initialGlossaryTerm, setInitialGlossaryTerm] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancel' | null>(null);
+  const [trial, setTrial] = useState<TrialState>(getTrialState());
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -35,6 +39,8 @@ export default function App() {
     const payment = params.get('payment');
     if (payment === 'success') {
       setPaymentStatus('success');
+      setPaidStatus(true);
+      setTrial(getTrialState());
       confetti({
         particleCount: 200,
         spread: 120,
@@ -131,37 +137,45 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen max-h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 border-x border-slate-200 max-w-7xl mx-auto shadow-2xl">
+    <div className="flex flex-col h-screen max-h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 md:border-x md:border-slate-200 md:max-w-7xl md:mx-auto md:shadow-2xl">
       {/* Header */}
-      <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
+      <header className="h-16 bg-white border-b border-slate-200 px-4 md:px-8 flex items-center justify-between shrink-0 shadow-sm z-10">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
-            <GraduationCap size={24} />
+          <button 
+            onClick={() => setIsTopicsOpen(true)}
+            className="p-2 -ml-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+            title="Browse Topics"
+          >
+            <LayoutGrid size={24} />
+          </button>
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg md:rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+            <GraduationCap size={20} className="md:hidden" />
+            <GraduationCap size={24} className="hidden md:block" />
           </div>
-          <span className="font-bold text-xl tracking-tight text-slate-800">SocraticTutor<span className="text-indigo-600">AI</span></span>
+          <span className="font-bold text-lg md:text-xl tracking-tight text-slate-800">Socratic<span className="text-indigo-600">AI</span></span>
         </div>
         
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2" role="radiogroup" aria-label="Select tutor voice character">
+        <div className="flex items-center gap-3 md:gap-6">
+          <div className="flex items-center gap-1 md:gap-2" role="radiogroup" aria-label="Select tutor voice character">
             <button 
               type="button"
               onClick={() => changeVoice("male")}
               aria-checked={selectedVoice === "male"}
               role="radio"
               className={cn(
-                "group relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-50",
+                "group relative flex flex-col items-center gap-1 p-1.5 md:p-2 rounded-lg md:rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-50",
                 selectedVoice === "male" ? "bg-indigo-50 ring-1 ring-indigo-100" : "hover:bg-slate-50"
               )}
               aria-label="Paul, Male Socratic Tutor"
             >
               <div className={cn(
-                "w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-2xl border-2 shadow-sm overflow-hidden group-hover:scale-110 transition-transform",
+                "w-8 h-8 md:w-10 md:h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl md:text-2xl border-2 shadow-sm overflow-hidden group-hover:scale-110 transition-transform",
                 selectedVoice === "male" ? "border-indigo-400" : "border-white"
               )}>
                 👨‍🏫
               </div>
               <span className={cn(
-                "text-[10px] font-bold uppercase tracking-tighter transition-colors",
+                "text-[8px] md:text-[10px] font-bold uppercase tracking-tighter transition-colors",
                 selectedVoice === "male" ? "text-indigo-600" : "text-slate-400 group-hover:text-indigo-600"
               )}>Male</span>
             </button>
@@ -171,19 +185,19 @@ export default function App() {
               aria-checked={selectedVoice === "female"}
               role="radio"
               className={cn(
-                "group relative flex flex-col items-center gap-1 p-2 rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-50",
+                "group relative flex flex-col items-center gap-1 p-1.5 md:p-2 rounded-lg md:rounded-xl transition-all outline-none focus-visible:ring-2 focus-visible:ring-indigo-50",
                 selectedVoice === "female" ? "bg-indigo-50 ring-1 ring-indigo-100" : "hover:bg-slate-50"
               )}
               aria-label="Sarah, Female Socratic Tutor"
             >
               <div className={cn(
-                "w-10 h-10 bg-rose-100 rounded-full flex items-center justify-center text-2xl border-2 shadow-sm overflow-hidden group-hover:scale-110 transition-transform",
+                "w-8 h-8 md:w-10 md:h-10 bg-rose-100 rounded-full flex items-center justify-center text-xl md:text-2xl border-2 shadow-sm overflow-hidden group-hover:scale-110 transition-transform",
                 selectedVoice === "female" ? "border-indigo-400" : "border-white"
               )}>
                 👩‍🏫
               </div>
               <span className={cn(
-                "text-[10px] font-bold uppercase tracking-tighter transition-colors",
+                "text-[8px] md:text-[10px] font-bold uppercase tracking-tighter transition-colors",
                 selectedVoice === "female" ? "text-indigo-600" : "text-slate-400 group-hover:text-indigo-600"
               )}>Female</span>
             </button>
@@ -198,10 +212,11 @@ export default function App() {
           </div>
           <button
             onClick={handleClear}
-            className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-lg transition-all"
+            className="flex items-center gap-2 p-2 md:px-4 md:py-2 text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-lg transition-all"
+            title="Start New Lesson"
           >
             <RefreshCw size={14} />
-            New Lesson
+            <span className="hidden md:inline">New Lesson</span>
           </button>
         </div>
       </header>
@@ -209,9 +224,46 @@ export default function App() {
       {/* Chat Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto px-4 md:px-8 py-8 scroll-smooth bg-slate-50"
+        className="flex-1 overflow-y-auto px-4 md:px-8 py-4 md:py-8 scroll-smooth bg-slate-50"
       >
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Trial Status Banner */}
+          {!trial.hasPaid && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={cn(
+                "p-3 rounded-xl flex items-center justify-between shadow-sm border",
+                trial.isExpired 
+                  ? "bg-red-50 border-red-100 text-red-700"
+                  : "bg-indigo-50 border-indigo-100 text-indigo-700"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                {trial.isExpired ? <Lock size={18} /> : <Clock size={18} />}
+                <div className="text-xs">
+                  {trial.isExpired ? (
+                    <p className="font-bold uppercase tracking-tight">Your free trial has expired</p>
+                  ) : (
+                    <p className="font-bold uppercase tracking-tight">{trial.daysRemaining} {trial.daysRemaining === 1 ? 'day' : 'days'} remaining in your free trial</p>
+                  )}
+                  <p className="opacity-70 text-[10px]">Get lifetime access to continue exploring math Socrates-style.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsTopicsOpen(true)}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all whitespace-nowrap",
+                  trial.isExpired 
+                    ? "bg-red-600 text-white shadow-md shadow-red-100" 
+                    : "bg-indigo-600 text-white shadow-md shadow-indigo-100"
+                )}
+              >
+                Unlock Lifetime Access
+              </button>
+            </motion.div>
+          )}
+
           {/* Welcome Interface */}
           {messages.length === 0 && (
             <motion.div 
@@ -245,83 +297,9 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Category Filter */}
-              <div className="flex flex-col items-center gap-6 py-4">
-                {paymentStatus === 'success' ? (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-4 text-green-700 font-medium shadow-sm"
-                  >
-                    <CheckCircle2 size={24} className="text-green-500" />
-                    <div>
-                      <p className="font-bold">Payment Successful!</p>
-                      <p className="text-xs text-green-600/80">You've unlocked lifetime access to Socratic Math Tutor AI.</p>
-                    </div>
-                  </motion.div>
-                ) : paymentStatus === 'cancel' ? (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="p-4 bg-orange-50 border border-orange-100 rounded-2xl flex items-center gap-4 text-orange-700 font-medium shadow-sm"
-                  >
-                    <AlertCircle size={24} className="text-orange-500" />
-                    <div>
-                      <p className="font-bold">Payment Cancelled</p>
-                      <p className="text-xs text-orange-600/80">Your transaction was not completed. No charges were made.</p>
-                    </div>
-                  </motion.div>
-                ) : (
-                  <div className="space-y-4">
-                    <p className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em]">Premium Socratic Experience</p>
-                    <PaymentButton />
-                  </div>
-                )}
-              </div>
+              {/* Category Filter - REMOVED from welcome view */}
 
-              <div className="flex flex-wrap justify-center gap-2 px-4">
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className={cn(
-                      "px-4 py-1.5 rounded-full text-xs font-bold transition-all border",
-                      selectedCategory === cat 
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100" 
-                        : "bg-white text-slate-500 border-slate-200 hover:border-indigo-200"
-                    )}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {/* Topics Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto px-4 pb-12">
-                <AnimatePresence mode="popLayout">
-                  {filteredTopics.map((tag, i) => (
-                    <motion.button 
-                      layout
-                      key={tag.text}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.2 }}
-                      onClick={() => handleSendMessage(`Help me get started with a ${tag.text} problem.`)}
-                      className="flex items-center gap-4 p-4 bg-white rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-50 transition-all text-left group"
-                    >
-                      <span className="text-2xl font-serif italic text-slate-300 group-hover:text-indigo-400 transition-colors shrink-0 w-10 text-center">
-                        {tag.icon}
-                      </span>
-                      <div className="flex-1 overflow-hidden">
-                        <div className="font-bold text-slate-800 tracking-tight text-sm truncate">{tag.text}</div>
-                        <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-tight mt-0.5 truncate">{tag.sub}</div>
-                      </div>
-                      <ChevronRight size={14} className="text-slate-300 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
-                    </motion.button>
-                  ))}
-                </AnimatePresence>
-              </div>
+              {/* Topics Grid - REMOVED from welcome view */}
             </motion.div>
           )}
 
@@ -347,32 +325,53 @@ export default function App() {
       </div>
 
       {/* Input Area */}
-      <footer className="bg-white border-t border-slate-100 p-4 shrink-0 shadow-inner z-10">
-        <MathInput onSendMessage={handleSendMessage} disabled={isStreaming} />
-        <div className="text-center mt-1">
-          <p className="text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]">
+      <footer className="bg-white border-t border-slate-100 p-2 md:p-4 shrink-0 shadow-inner z-10 relative">
+        {trial.isExpired && !trial.hasPaid && (
+          <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-[2px] flex items-center justify-center p-4">
+            <div className="text-center space-y-3">
+              <div className="inline-flex p-3 bg-red-100 text-red-600 rounded-full">
+                <Lock size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-800">Your trial is complete</p>
+                <p className="text-xs text-slate-500">Please purchase lifetime access to send more messages.</p>
+              </div>
+              <PaymentButton />
+            </div>
+          </div>
+        )}
+        <MathInput onSendMessage={handleSendMessage} disabled={isStreaming || (trial.isExpired && !trial.hasPaid)} />
+        <div className="text-center mt-1 pb-safe">
+          <p className="text-[8px] md:text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]">
             Socratic Intelligence • High Performance Reasoning
           </p>
         </div>
       </footer>
       
       {/* Action Footer */}
-      <div className="h-12 bg-slate-100 border-t border-slate-200 px-8 flex items-center justify-between text-[11px] font-bold text-slate-500 uppercase tracking-widest shrink-0">
-        <div className="flex gap-8">
+      <div className="h-10 md:h-12 bg-slate-100 border-t border-slate-200 px-4 md:px-8 flex items-center justify-between text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-widest shrink-0 overflow-x-auto no-scrollbar">
+        <div className="flex gap-6 md:gap-8 whitespace-nowrap">
           <button 
             onClick={() => openGlossary()}
             className="hover:text-indigo-600 transition-colors"
           >
             Glossary
           </button>
-          <button className="hover:text-indigo-600 transition-colors">Formula Sheet</button>
+          <button className="hover:text-indigo-600 transition-colors">Formulas</button>
           <button className="hover:text-indigo-600 transition-colors">Help</button>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          AI System Ready
+        <div className="flex items-center gap-2 shrink-0 ml-4">
+          <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+          <span className="hidden md:inline">AI System Ready</span>
+          <span className="md:hidden">Ready</span>
         </div>
       </div>
+
+      <TopicsOverlay 
+        isOpen={isTopicsOpen} 
+        onClose={() => setIsTopicsOpen(false)} 
+        onSelectTopic={handleSendMessage}
+      />
 
       <GlossaryOverlay 
         isOpen={isGlossaryOpen} 

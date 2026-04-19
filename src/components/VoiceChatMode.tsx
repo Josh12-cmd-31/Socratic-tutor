@@ -153,7 +153,7 @@ export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNe
           }}
           transition={{ duration: 1.5, repeat: Infinity }}
           className={cn(
-            "w-48 h-48 rounded-full flex items-center justify-center text-8xl shadow-2xl relative",
+            "w-32 h-32 md:w-48 md:h-48 rounded-full flex items-center justify-center text-6xl md:text-8xl shadow-2xl relative",
             gender === "male" ? "bg-blue-600/20 border-4 border-blue-500/30" : "bg-rose-600/20 border-4 border-rose-500/30"
           )}
         >
@@ -163,7 +163,7 @@ export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNe
               <motion.div 
                 animate={{ rotate: 360 }}
                 transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-56 h-56 border-2 border-dashed border-indigo-400/50 rounded-full"
+                className="w-40 h-40 md:w-56 md:h-56 border-2 border-dashed border-indigo-400/50 rounded-full"
               />
             </div>
           )}

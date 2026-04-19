@@ -115,7 +115,7 @@ export function MathChart({
           {title}
         </div>
       )}
-      <div className="h-64 w-full">
+      <div className="h-48 md:h-64 w-full">
         <ResponsiveContainer width="100%" height="100%">
           {renderChart() as any}
         </ResponsiveContainer>

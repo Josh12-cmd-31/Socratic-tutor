@@ -37,13 +37,13 @@ export function ChatBubble({ message, isStreaming, onTermClick }: ChatBubbleProp
 
       <div
         className={cn(
-          "max-w-[85%] md:max-w-[70%] space-y-3",
+          "max-w-[90%] md:max-w-[70%] space-y-3",
           isUser ? "items-end flex flex-col" : "items-start flex flex-col"
         )}
       >
         <div
           className={cn(
-            "p-5 rounded-2xl shadow-sm border",
+            "p-3.5 md:p-5 rounded-2xl shadow-sm border",
             isUser
               ? "bg-indigo-600 text-white rounded-tr-none border-indigo-500 shadow-indigo-100"
               : "bg-white border-slate-100 text-slate-700 rounded-tl-none"

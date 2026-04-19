@@ -33,10 +33,10 @@ export function MathInput({ onSendMessage, disabled }: MathInputProps) {
   };
 
   return (
-    <div className="w-full max-w-4xl mx-auto p-4">
+    <div className="w-full max-w-4xl mx-auto px-1 md:px-4">
       <form
         onSubmit={handleSubmit}
-        className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden"
+        className="bg-white rounded-2xl border border-slate-200 shadow-lg md:shadow-xl overflow-hidden"
       >
         {image && (
           <div className="relative inline-block m-4 p-1 bg-slate-50 rounded-lg border border-slate-200">
@@ -55,14 +55,14 @@ export function MathInput({ onSendMessage, disabled }: MathInputProps) {
           </div>
         )}
         
-        <div className="flex items-center gap-3 p-4">
+        <div className="flex items-center gap-2 md:gap-3 p-2 md:p-4">
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
-            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+            className="p-3 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shrink-0"
             title="Upload photo"
           >
-            <ImagePlus size={24} />
+            <ImagePlus size={24} className="md:w-6 md:h-6 w-5 h-5" />
           </button>
           
           <input
@@ -73,7 +73,7 @@ export function MathInput({ onSendMessage, disabled }: MathInputProps) {
             className="hidden"
           />
 
-          <div className="flex-1 bg-slate-100 rounded-xl h-12 flex items-center px-4 border border-slate-200">
+          <div className="flex-1 bg-slate-100 rounded-xl min-h-[44px] md:h-12 flex items-center px-3 md:px-4 border border-slate-200">
             <textarea
               rows={1}
               value={content}
@@ -84,8 +84,8 @@ export function MathInput({ onSendMessage, disabled }: MathInputProps) {
                   handleSubmit(e);
                 }
               }}
-              placeholder="Ask a question or explain where you're stuck..."
-              className="bg-transparent border-none focus:outline-none w-full text-slate-700 placeholder-slate-400 font-medium py-2 resize-none"
+              placeholder="Ask a question..."
+              className="bg-transparent border-none focus:outline-none w-full text-slate-700 placeholder-slate-400 font-medium py-2 resize-none text-sm md:text-base"
               disabled={disabled}
             />
           </div>
@@ -94,13 +94,13 @@ export function MathInput({ onSendMessage, disabled }: MathInputProps) {
             type="submit"
             disabled={(!content.trim() && !image) || disabled}
             className={cn(
-              "h-12 w-12 rounded-xl flex items-center justify-center transition-all shadow-lg",
+              "h-10 w-10 md:h-12 md:w-12 rounded-xl flex items-center justify-center transition-all shadow-lg shrink-0",
               (!content.trim() && !image) || disabled
                 ? "bg-slate-200 text-slate-400 cursor-not-allowed shadow-none"
                 : "bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-100"
             )}
           >
-            <Send size={20} className={cn(!disabled && "transform rotate-90")} />
+            <Send size={18} className={cn("md:w-5 md:h-5 w-4 h-4", !disabled && "transform rotate-90")} />
           </button>
         </div>
       </form>
