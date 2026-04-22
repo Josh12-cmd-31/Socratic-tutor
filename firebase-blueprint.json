@@ -1,0 +1,40 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Information about a registered student",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Unique identifier from Firebase Auth"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "User email address"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "User's full name"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Metadata for when account was created"
+        },
+        "isPremium": {
+          "type": "boolean",
+          "description": "Whether the user has paid for lifetime access"
+        }
+      },
+      "required": ["uid", "email", "createdAt"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Collection of student profiles"
+    }
+  }
+}

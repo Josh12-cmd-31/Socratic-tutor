@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, BrainCircuit, GraduationCap, RefreshCw, ChevronRight, LayoutGrid, Clock, Lock } from 'lucide-react';
+import { Sparkles, BrainCircuit, GraduationCap, RefreshCw, ChevronRight, LayoutGrid, Clock, Lock, LogOut, User as UserIcon, Loader2 } from 'lucide-react';
 import { ChatBubble } from './components/ChatBubble';
 import { MathInput } from './components/MathInput';
 import { GlossaryOverlay } from './components/GlossaryOverlay';
 import { VoiceChatMode } from './components/VoiceChatMode';
 import { PaymentButton } from './components/PaymentButton';
 import { TopicsOverlay } from './components/TopicsOverlay';
+import { Login } from './components/Login';
+import { SignUp } from './components/SignUp';
+import { useAuth } from './contexts/AuthContext';
 import { chatStream, type Message } from './lib/gemini';
 import { MATH_TOPICS, type MathTopic } from './constants';
 import { cn } from '@/lib/utils';
@@ -14,6 +17,8 @@ import { speak, stopSpeaking } from './lib/speech';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { getTrialState, setPaidStatus, type TrialState } from './lib/trial';
 import confetti from 'canvas-confetti';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from './lib/firebase';
 
 const WELCOME_MESSAGES = [
   "Hello! I'm your Socratic math tutor. I'm here to help you understand the 'why' behind the math, not just the 'how'.",
@@ -21,6 +26,8 @@ const WELCOME_MESSAGES = [
 ];
 
 export default function App() {
+  const { user, profile, loading: authLoading, logout } = useAuth();
+  const [authView, setAuthView] = useState<'login' | 'signup'>('login');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [currentStreamedText, setCurrentStreamedText] = useState("");
@@ -37,9 +44,11 @@ export default function App() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const payment = params.get('payment');
-    if (payment === 'success') {
+    if (payment === 'success' && user) {
       setPaymentStatus('success');
       setPaidStatus(true);
+      // Sync with Firestore
+      updateDoc(doc(db, 'users', user.uid), { isPremium: true });
       setTrial(getTrialState());
       confetti({
         particleCount: 200,
@@ -136,6 +145,31 @@ export default function App() {
     setIsGlossaryOpen(true);
   };
 
+  if (authLoading) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
+          <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">Preparing Lesson...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-slate-50 p-4">
+        {authView === 'login' ? (
+          <Login onSwitchToSignUp={() => setAuthView('signup')} />
+        ) : (
+          <SignUp onSwitchToLogin={() => setAuthView('login')} />
+        )}
+      </div>
+    );
+  }
+
+  const effectiveHasPaid = trial.hasPaid || profile?.isPremium;
+
   return (
     <div className="flex flex-col h-screen max-h-screen bg-slate-50 overflow-hidden font-sans text-slate-900 md:border-x md:border-slate-200 md:max-w-7xl md:mx-auto md:shadow-2xl">
       {/* Header */}
@@ -146,17 +180,17 @@ export default function App() {
             className="p-2 -ml-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
             title="Browse Topics"
           >
-            <LayoutGrid size={24} />
+            <LayoutGrid size={20} />
           </button>
-          <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg md:rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+          <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg md:rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 mr-1">
             <GraduationCap size={20} className="md:hidden" />
             <GraduationCap size={24} className="hidden md:block" />
           </div>
-          <span className="font-bold text-lg md:text-xl tracking-tight text-slate-800">Socratic<span className="text-indigo-600">AI</span></span>
+          <span className="font-bold text-lg md:text-xl tracking-tight text-slate-800 shrink-0">Socratic<span className="text-indigo-600">AI</span></span>
         </div>
         
-        <div className="flex items-center gap-3 md:gap-6">
-          <div className="flex items-center gap-1 md:gap-2" role="radiogroup" aria-label="Select tutor voice character">
+        <div className="flex items-center gap-2 md:gap-6">
+          <div className="hidden lg:flex items-center gap-1 md:gap-2 mr-2" role="radiogroup" aria-label="Select tutor voice character">
             <button 
               type="button"
               onClick={() => changeVoice("male")}
@@ -203,16 +237,28 @@ export default function App() {
             </button>
           </div>
 
-          
+          <div className="w-px h-8 bg-slate-100 hidden md:block mx-2"></div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden sm:block text-right">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{profile?.isPremium ? 'Premium' : 'Student'}</p>
+              <p className="text-xs font-bold text-slate-700 truncate max-w-[100px]">{user.displayName || user.email?.split('@')[0]}</p>
+            </div>
+            
+            <button
+              onClick={() => logout()}
+              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+              title="Logout"
+            >
+              <LogOut size={20} />
+            </button>
+          </div>
+
           <div className="w-px h-8 bg-slate-100 hidden md:block"></div>
 
-          <div className="hidden md:block text-right">
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-widest">Active Session</p>
-            <p className="text-sm font-medium text-slate-700">Explore Math</p>
-          </div>
           <button
             onClick={handleClear}
-            className="flex items-center gap-2 p-2 md:px-4 md:py-2 text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-lg transition-all"
+            className="flex items-center gap-2 p-2 md:px-4 md:py-2 text-xs font-bold uppercase tracking-wider text-indigo-600 bg-indigo-50 border border-indigo-100 hover:bg-indigo-100 rounded-lg transition-all shrink-0"
             title="Start New Lesson"
           >
             <RefreshCw size={14} />
@@ -228,7 +274,7 @@ export default function App() {
       >
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Trial Status Banner */}
-          {!trial.hasPaid && (
+          {!effectiveHasPaid && (
             <motion.div 
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -326,7 +372,7 @@ export default function App() {
 
       {/* Input Area */}
       <footer className="bg-white border-t border-slate-100 p-2 md:p-4 shrink-0 shadow-inner z-10 relative">
-        {trial.isExpired && !trial.hasPaid && (
+        {trial.isExpired && !effectiveHasPaid && (
           <div className="absolute inset-0 z-20 bg-white/80 backdrop-blur-[2px] flex items-center justify-center p-4">
             <div className="text-center space-y-3">
               <div className="inline-flex p-3 bg-red-100 text-red-600 rounded-full">
@@ -340,7 +386,7 @@ export default function App() {
             </div>
           </div>
         )}
-        <MathInput onSendMessage={handleSendMessage} disabled={isStreaming || (trial.isExpired && !trial.hasPaid)} />
+        <MathInput onSendMessage={handleSendMessage} disabled={isStreaming || (trial.isExpired && !effectiveHasPaid)} />
         <div className="text-center mt-1 pb-safe">
           <p className="text-[8px] md:text-[10px] font-bold text-slate-300 uppercase tracking-[0.2em]">
             Socratic Intelligence • High Performance Reasoning

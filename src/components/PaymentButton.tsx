@@ -1,26 +1,16 @@
 import React, { useState } from "react";
 import { CreditCard, Rocket, ShieldCheck, Loader2, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function PaymentButton() {
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(user?.email || "");
   const [showEmailInput, setShowEmailInput] = useState(false);
 
-  const handlePayment = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    
-    if (!showEmailInput) {
-      setShowEmailInput(true);
-      return;
-    }
-
-    if (!email || !email.includes("@")) {
-      setError("Please enter a valid email address.");
-      return;
-    }
-
+  const initiatePayment = async (targetEmail: string) => {
     setIsLoading(true);
     setError(null);
 
@@ -30,7 +20,7 @@ export function PaymentButton() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: targetEmail }),
       });
 
       if (!response.ok) {
@@ -51,6 +41,28 @@ export function PaymentButton() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePayment = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    
+    // If user is logged in, we use their email directly
+    if (user?.email) {
+      initiatePayment(user.email);
+      return;
+    }
+
+    if (!showEmailInput) {
+      setShowEmailInput(true);
+      return;
+    }
+
+    if (!email || !email.includes("@")) {
+      setError("Please enter a valid email address.");
+      return;
+    }
+
+    initiatePayment(email);
   };
 
   return (
