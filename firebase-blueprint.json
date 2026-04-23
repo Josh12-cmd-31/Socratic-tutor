@@ -35,6 +35,18 @@
     "users/{userId}": {
       "schema": "User",
       "description": "Collection of student profiles"
+    },
+    "payments/{paymentId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "userId": { "type": "string" },
+          "amount": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        },
+        "required": ["userId", "amount", "createdAt"]
+      },
+      "description": "Log of student payments and contributions"
     }
   }
 }

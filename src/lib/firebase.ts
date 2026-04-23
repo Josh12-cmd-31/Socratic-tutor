@@ -3,20 +3,30 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
-const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+const app = initializeApp(firebaseConfig as any);
+export const db = (firebaseConfig as any).firestoreDatabaseId 
+  ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId)
+  : getFirestore(app);
 export const auth = getAuth(app);
 
-// Connectivity Test
+// Connectivity Test - Improved for debugging
 async function testConnection() {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.error("Please check your Firebase configuration or internet connection.");
+    // Attempt a lightweight check
+    await getDocFromServer(doc(db, 'system', 'health-check'));
+  } catch (error: any) {
+    console.warn("Firebase Connectivity Note:", error.message);
+    if (error.message.includes('offline') || error.code === 'unavailable') {
+      console.error(
+        "CRITICAL: Firestore is unable to connect. Please ensure:\n" +
+        "1. You have created a Firestore database in your Firebase Console (socratic-ai-d0a93).\n" +
+        "2. The database is initialized in 'Production' or 'Test' mode.\n" +
+        "3. Your API Key is valid and doesn't have domain restrictions."
+      );
     }
   }
 }
+// We run this as a background check to not block the main UI
 testConnection();
 
 export interface FirestoreErrorInfo {

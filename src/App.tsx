@@ -5,11 +5,13 @@ import { ChatBubble } from './components/ChatBubble';
 import { MathInput } from './components/MathInput';
 import { GlossaryOverlay } from './components/GlossaryOverlay';
 import { VoiceChatMode } from './components/VoiceChatMode';
+import { SocraticSolverOverlay } from './components/SocraticSolverOverlay';
 import { PaymentButton } from './components/PaymentButton';
 import { TopicsOverlay } from './components/TopicsOverlay';
 import { Login } from './components/Login';
 import { SignUp } from './components/SignUp';
 import { useAuth } from './contexts/AuthContext';
+import { askAI } from './lib/externalAi';
 import { chatStream, type Message } from './lib/gemini';
 import { MATH_TOPICS, type MathTopic } from './constants';
 import { cn } from '@/lib/utils';
@@ -36,6 +38,7 @@ export default function App() {
   const [isVoiceChatMode, setIsVoiceChatMode] = useState(false);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [isTopicsOpen, setIsTopicsOpen] = useState(false);
+  const [isSolverOpen, setIsSolverOpen] = useState(false);
   const [initialGlossaryTerm, setInitialGlossaryTerm] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancel' | null>(null);
   const [trial, setTrial] = useState<TrialState>(getTrialState());
@@ -103,12 +106,12 @@ export default function App() {
     setCurrentStreamedText("");
     
     let fullContent = "";
-
+    
     try {
-      await chatStream(updatedMessages, (chunk) => {
-        fullContent += chunk;
-        setCurrentStreamedText(fullContent);
-      });
+      // Switching to External Socratic API
+      const reply = await askAI(content);
+      fullContent = reply;
+      setCurrentStreamedText(fullContent);
     } catch (err) {
       console.error(err);
       fullContent = "I'm sorry, I encountered an error. Could you try rephrasing that?";
@@ -255,6 +258,15 @@ export default function App() {
           </div>
 
           <div className="w-px h-8 bg-slate-100 hidden md:block"></div>
+
+          <button
+            onClick={() => setIsSolverOpen(true)}
+            className="flex items-center gap-2 p-2 md:px-4 md:py-2 text-xs font-bold uppercase tracking-wider text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all shrink-0 shadow-lg shadow-indigo-100"
+            title="Step-by-Step Solver"
+          >
+            <BrainCircuit size={14} />
+            <span className="hidden md:inline">Step Solver</span>
+          </button>
 
           <button
             onClick={handleClear}
@@ -423,6 +435,11 @@ export default function App() {
         isOpen={isGlossaryOpen} 
         onClose={() => setIsGlossaryOpen(false)} 
         initialTerm={initialGlossaryTerm}
+      />
+
+      <SocraticSolverOverlay 
+        isOpen={isSolverOpen}
+        onClose={() => setIsSolverOpen(false)}
       />
 
       <AnimatePresence>

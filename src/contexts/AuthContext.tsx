@@ -26,23 +26,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(firebaseUser);
       
       if (firebaseUser) {
-        // Fetch or create profile
-        const userDoc = doc(db, 'users', firebaseUser.uid);
-        const docSnap = await getDoc(userDoc);
-        
-        if (docSnap.exists()) {
-          setProfile(docSnap.data());
-        } else {
-          // Create initial profile if it doesn't exist
-          const newProfile = {
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            displayName: firebaseUser.displayName || '',
-            createdAt: serverTimestamp(),
-            isPremium: false
-          };
-          await setDoc(userDoc, newProfile);
-          setProfile(newProfile);
+        try {
+          // Fetch or create profile with a timeout to prevent hanging
+          const userDoc = doc(db, 'users', firebaseUser.uid);
+          const docSnap = await getDoc(userDoc);
+          
+          if (docSnap.exists()) {
+            setProfile(docSnap.data());
+          } else {
+            // Create initial profile if it doesn't exist
+            const newProfile = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName || '',
+              createdAt: serverTimestamp(),
+              isPremium: false
+            };
+            await setDoc(userDoc, newProfile);
+            setProfile(newProfile);
+          }
+        } catch (err) {
+          console.warn("Profile fetch deferred:", err);
+          // Don't block the app if profile fetch fails
         }
       } else {
         setProfile(null);

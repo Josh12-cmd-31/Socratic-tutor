@@ -5,9 +5,10 @@ import { cn } from "@/lib/utils";
 interface MathInputProps {
   onSendMessage: (content: string, image?: string) => void;
   disabled?: boolean;
+  placeholder?: string;
 }
 
-export function MathInput({ onSendMessage, disabled }: MathInputProps) {
+export function MathInput({ onSendMessage, disabled, placeholder = "Ask a question..." }: MathInputProps) {
   const [content, setContent] = useState("");
   const [image, setImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,7 +85,7 @@ export function MathInput({ onSendMessage, disabled }: MathInputProps) {
                   handleSubmit(e);
                 }
               }}
-              placeholder="Ask a question..."
+              placeholder={placeholder}
               className="bg-transparent border-none focus:outline-none w-full text-slate-700 placeholder-slate-400 font-medium py-2 resize-none text-sm md:text-base"
               disabled={disabled}
             />

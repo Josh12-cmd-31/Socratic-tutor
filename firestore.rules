@@ -32,6 +32,10 @@ service cloud.firestore {
       return request.auth.token.email_verified == true;
     }
 
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
     // --- Validation Helpers ---
     function isValidUser(data) {
       return data.uid == request.auth.uid &&
@@ -55,6 +59,14 @@ service cloud.firestore {
                          // Action: Only allow display name change from client
                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName'])
                        );
+    }
+
+    match /payments/{paymentId} {
+      allow create: if isAuthenticated() 
+                    && incoming().amount is int 
+                    && incoming().amount > 0
+                    && incoming().userId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
     }
   }
 }
