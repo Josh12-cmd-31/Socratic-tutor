@@ -28,12 +28,15 @@ service cloud.firestore {
     }
 
     function isVerified() {
-      // For standard writes, mandate verification if possible, but keep simple for now
-      return request.auth.token.email_verified == true;
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.admin == true;
     }
 
     function isAuthenticated() {
-      return request.auth != null;
+      return isSignedIn();
     }
 
     // --- Validation Helpers ---
@@ -44,29 +47,47 @@ service cloud.firestore {
              (!('isPremium' in data) || data.isPremium is bool);
     }
 
+    function isNotBanned(userId) {
+      // We check if the user document says they are banned
+      // However, get() in rules costs money and is O(n), so for 'users' collection we can check incoming()/existing()
+      // For other collections, we'd need to check the user record or rely on a custom claim (which we don't have yet for banning)
+      // Since we already check isOwner, and the owner is the one being checked, we can check resource.data for existing docs
+      return !('isBanned' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) || 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBanned == false;
+    }
+
     // --- Collections ---
     match /users/{userId} {
-      allow get: if isOwner(userId) && isValidId(userId);
+      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow list: if isAdmin();
       allow create: if isOwner(userId) && isValidId(userId) &&
+                       isVerified() &&
                        incoming().keys().hasAll(['uid', 'email', 'createdAt']) &&
                        incoming().uid == request.auth.uid &&
                        incoming().createdAt == request.time &&
                        isValidUser(incoming());
-      allow update: if isOwner(userId) && isValidId(userId) &&
+      allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId) &&
+                       isVerified() &&
+                       // Check that the user is NOT attempting to unban themselves if they were banned
+                       (!('isBanned' in existing()) || existing().isBanned == false) &&
                        incoming().uid == existing().uid &&
                        incoming().createdAt == existing().createdAt &&
                        isValidUser(incoming()) && (
+                         isAdmin() ||
                          // Action: Only allow display name change from client
                          incoming().diff(existing()).affectedKeys().hasOnly(['displayName'])
                        );
+      allow delete: if isAdmin();
     }
 
     match /payments/{paymentId} {
-      allow create: if isAuthenticated() 
+      allow create: if isVerified() 
+                    && isNotBanned(request.auth.uid)
                     && incoming().amount is int 
                     && incoming().amount > 0
                     && incoming().userId == request.auth.uid;
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow read: if (isVerified() && isNotBanned(request.auth.uid) && resource.data.userId == request.auth.uid) || isAdmin();
+      allow list: if isAdmin();
     }
   }
 }

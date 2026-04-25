@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Mail, Lock, User, UserPlus, ArrowRight, GraduationCap } from 'lucide-react';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { cn } from '@/lib/utils';
 
@@ -14,21 +14,56 @@ export function SignUp({ onSwitchToLogin }: SignUpProps) {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (password.length < 10) {
+      setError('Password must be at least 10 characters long.');
+      setLoading(false);
+      return;
+    }
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName: name });
+      await sendEmailVerification(userCredential.user);
+      setSuccess(true);
     } catch (err: any) {
       setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
   };
+
+  if (success) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md p-8 bg-white rounded-3xl shadow-2xl border border-indigo-100 text-center space-y-6"
+      >
+        <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto">
+          <Mail size={40} />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Check your email</h2>
+        <p className="text-slate-600">
+          We've sent a verification link to <span className="font-bold text-indigo-600">{email}</span>. 
+          Please verify your email to access your Socratic tutor.
+        </p>
+        <button 
+          onClick={onSwitchToLogin}
+          className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
+        >
+          Go to Sign In
+        </button>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div 
@@ -84,8 +119,8 @@ export function SignUp({ onSwitchToLogin }: SignUpProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 transition-all font-medium text-slate-700"
-              placeholder="Min. 6 characters"
-              min={6}
+              placeholder="Min. 10 characters"
+              min={10}
               required
             />
           </div>

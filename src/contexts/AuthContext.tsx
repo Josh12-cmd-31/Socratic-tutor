@@ -4,14 +4,25 @@ import {
   onAuthStateChanged, 
   signOut 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+
+// Simple device fingerprint helper
+async function getDeviceId() {
+  let id = localStorage.getItem('socratic_device_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('socratic_device_id', id);
+  }
+  return id;
+}
 
 interface AuthContextType {
   user: User | null;
   profile: any | null;
   loading: boolean;
   logout: () => Promise<void>;
+  checkBanning: (uid: string) => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,18 +32,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const checkBanning = async (uid: string) => {
+    const deviceId = await getDeviceId();
+    
+    try {
+      const response = await fetch('/api/check-device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, deviceId })
+      });
+      const data = await response.json();
+      return data.isBanned || false;
+    } catch (err) {
+      console.error("Banning check failed:", err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // If user exists but is NOT verified, we clear the user state and profile
+      if (firebaseUser && !firebaseUser.emailVerified) {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+
       setUser(firebaseUser);
       
       if (firebaseUser) {
         try {
-          // Fetch or create profile with a timeout to prevent hanging
+          const deviceId = await getDeviceId();
           const userDoc = doc(db, 'users', firebaseUser.uid);
           const docSnap = await getDoc(userDoc);
           
+          let currentProfile;
           if (docSnap.exists()) {
-            setProfile(docSnap.data());
+            currentProfile = docSnap.data();
+            // Update deviceId if not set or changed
+            if (currentProfile.deviceId !== deviceId) {
+              await updateDoc(userDoc, { deviceId });
+              currentProfile.deviceId = deviceId;
+            }
           } else {
             // Create initial profile if it doesn't exist
             const newProfile = {
@@ -40,14 +82,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: firebaseUser.email,
               displayName: firebaseUser.displayName || '',
               createdAt: serverTimestamp(),
-              isPremium: false
+              isPremium: false,
+              deviceId: deviceId,
+              isBanned: false
             };
             await setDoc(userDoc, newProfile);
-            setProfile(newProfile);
+            currentProfile = newProfile;
           }
+
+          setProfile(currentProfile);
+          
+          // Check for multi-account ban
+          if (!currentProfile.isBanned) {
+            const isBanned = await checkBanning(firebaseUser.uid);
+            if (isBanned) {
+              const freshDoc = await getDoc(userDoc);
+              setProfile(freshDoc.data());
+            }
+          }
+
         } catch (err) {
           console.warn("Profile fetch deferred:", err);
-          // Don't block the app if profile fetch fails
         }
       } else {
         setProfile(null);
@@ -62,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, logout }}>
+    <AuthContext.Provider value={{ user, profile, loading, logout, checkBanning }}>
       {children}
     </AuthContext.Provider>
   );

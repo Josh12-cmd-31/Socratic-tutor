@@ -13,23 +13,25 @@ export interface TrialState {
   hasPaid: boolean;
 }
 
-export function getTrialState(): TrialState {
+export function getTrialState(createdAt?: any): TrialState {
   const hasPaid = localStorage.getItem('socratic_tutor_paid') === 'true';
   const firstVisit = localStorage.getItem('socratic_tutor_first_visit');
   
+  // If we have a createdAt from firestore, use that as the source of truth
+  const effectiveStartTime = createdAt 
+    ? (createdAt.toDate ? createdAt.toDate().getTime() : new Date(createdAt).getTime()) 
+    : (firstVisit ? parseInt(firstVisit) : Date.now());
+
+  if (!firstVisit && !createdAt) {
+    localStorage.setItem('socratic_tutor_first_visit', Date.now().toString());
+  }
+
   if (hasPaid) {
     return { isAvailable: true, isExpired: false, daysRemaining: 0, hasPaid: true };
   }
 
-  if (!firstVisit) {
-    const now = Date.now().toString();
-    localStorage.setItem('socratic_tutor_first_visit', now);
-    return { isAvailable: true, isExpired: false, daysRemaining: TRIAL_DURATION_DAYS, hasPaid: false };
-  }
-
-  const visitTime = parseInt(firstVisit);
   const currentTime = Date.now();
-  const elapsedMs = currentTime - visitTime;
+  const elapsedMs = currentTime - effectiveStartTime;
   const elapsedDays = elapsedMs / MS_PER_DAY;
   
   const daysRemaining = Math.max(0, Math.ceil(TRIAL_DURATION_DAYS - elapsedDays));

@@ -19,8 +19,19 @@ export function Login({ onSwitchToSignUp }: LoginProps) {
     e.preventDefault();
     setLoading(true);
     setError(null);
+
+    if (password.length < 10) {
+      setError('Password must be at least 10 characters long.');
+      setLoading(false);
+      return;
+    }
+
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      if (!userCredential.user.emailVerified) {
+        await auth.signOut();
+        setError('Please verify your email before signing in. Check your inbox for the verification link.');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to login');
     } finally {
@@ -31,7 +42,12 @@ export function Login({ onSwitchToSignUp }: LoginProps) {
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const userCredential = await signInWithPopup(auth, provider);
+      // Google users are usually pre-verified, but let's be safe
+      if (!userCredential.user.emailVerified) {
+        await auth.signOut();
+        setError('Please verify your email associated with your Google account.');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to login with Google');
     }

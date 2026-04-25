@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Mic, MicOff, X, Volume2, MessageSquare, GraduationCap } from "lucide-react";
 import { speak, stopSpeaking } from "../lib/speech";
-import { chatStream, type Message } from "../lib/gemini";
+import { askAI } from "../lib/externalAi";
+import { type Message } from "../lib/gemini";
 import { cn } from "@/lib/utils";
 
 interface VoiceChatModeProps {
@@ -25,7 +26,7 @@ export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNe
 
   useEffect(() => {
     // Initial Greeting
-    const intro = `I'm ready to listen, it's one-on-one time. What's on your mind?`;
+    const intro = `Hello! I am your Socratic math tutor. I'm so happy to study with you one-on-one. What shall we explore together?`;
     speak(intro, gender);
 
     // Setup Speech Recognition if available
@@ -88,10 +89,9 @@ export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNe
     const contextMessages = [...history, { role: "user", content: text } as Message];
     
     try {
-      await chatStream(contextMessages, (chunk) => {
-        localResponse += chunk;
-        setCurrentResponse(localResponse);
-      });
+      const reply = await askAI(text);
+      localResponse = reply;
+      setCurrentResponse(localResponse);
     } catch (err) {
       console.error(err);
       localResponse = "I'm sorry, I'm having trouble connecting right now. Let's try that again.";

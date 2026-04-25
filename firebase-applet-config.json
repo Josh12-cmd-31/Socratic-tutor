@@ -1,8 +1,10 @@
 {
   "projectId": "socratic-ai-d0a93",
-  "appId": "1:111425742486:web:0bef852aed9f58e53e84b7",
+  "appId": "1:111425742486:web:ffc2e65860ded3143e84b7",
   "apiKey": "AIzaSyABxE9-17gcSVwkYrZFjS3KLiTKvfClaGo",
   "authDomain": "socratic-ai-d0a93.firebaseapp.com",
+  "firestoreDatabaseId": "ai-studio-92eb43b7-c4d6-44d8-baf4-06f82197d5d5",
   "storageBucket": "socratic-ai-d0a93.firebasestorage.app",
-  "messagingSenderId": "111425742486"
+  "messagingSenderId": "111425742486",
+  "measurementId": ""
 }

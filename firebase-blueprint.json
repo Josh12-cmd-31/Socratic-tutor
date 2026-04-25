@@ -26,6 +26,18 @@
         "isPremium": {
           "type": "boolean",
           "description": "Whether the user has paid for lifetime access"
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Unique identifier for the device used"
+        },
+        "isBanned": {
+          "type": "boolean",
+          "description": "Whether the user is banned due to policy violation"
+        },
+        "banReason": {
+          "type": "string",
+          "description": "Reason for the account ban"
         }
       },
       "required": ["uid", "email", "createdAt"]

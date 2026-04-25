@@ -113,6 +113,54 @@ async function startServer() {
     }
   });
 
+  // Endpoint to check and auto-ban multiple accounts on same device
+  app.post("/api/check-device", async (req, res) => {
+    const { uid, deviceId } = req.body;
+
+    if (!uid || !deviceId) {
+      return res.status(400).json({ error: "UID and DeviceID are required." });
+    }
+
+    try {
+      getAdmin();
+      const db = admin.firestore();
+      
+      const usersRef = db.collection("users");
+      const snapshot = await usersRef.where("deviceId", "==", deviceId).get();
+      
+      const otherUsers = snapshot.docs.filter(doc => doc.id !== uid);
+      
+      if (otherUsers.length > 0) {
+        // Multi-account detected
+        const batch = db.batch();
+        
+        // Ban current user
+        batch.update(usersRef.doc(uid), { 
+          isBanned: true, 
+          banReason: "Multiple accounts on same device detected (AI Auto-Ban)" 
+        });
+        
+        // Ban other users
+        otherUsers.forEach(doc => {
+          if (!doc.data().isBanned) {
+            batch.update(doc.ref, { 
+              isBanned: true, 
+              banReason: "Multiple accounts on same device detected (AI Auto-Ban)" 
+            });
+          }
+        });
+        
+        await batch.commit();
+        return res.json({ isBanned: true });
+      }
+      
+      res.json({ isBanned: false });
+    } catch (err: any) {
+      console.error("Device Check Error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
