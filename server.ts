@@ -5,6 +5,9 @@ import { fileURLToPath } from "url";
 import axios from "axios";
 import dotenv from "dotenv";
 import admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
+
+import fs from "fs";
 
 dotenv.config();
 
@@ -15,7 +18,16 @@ const __dirname = path.dirname(__filename);
 let adminApp: admin.app.App | null = null;
 function getAdmin() {
   if (!adminApp) {
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    let serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    
+    // Fallback to local file if env var is missing
+    if (!serviceAccountJson) {
+      const saPath = path.join(process.cwd(), "firebase-sa-minified.txt");
+      if (fs.existsSync(saPath)) {
+        serviceAccountJson = fs.readFileSync(saPath, "utf-8");
+      }
+    }
+
     if (!serviceAccountJson) {
       console.warn("FIREBASE_SERVICE_ACCOUNT_JSON is not defined. Firebase Admin features will be disabled.");
       return null;
@@ -106,6 +118,7 @@ async function startServer() {
       if (!adminInstance) {
         return res.status(503).json({ error: "Admin SDK not configured on server. Missing FIREBASE_SERVICE_ACCOUNT_JSON." });
       }
+
       await admin.auth().setCustomUserClaims(uid, {
         admin: true
       });
@@ -131,7 +144,20 @@ async function startServer() {
         console.warn("Skipping device check: FIREBASE_SERVICE_ACCOUNT_JSON is not configured.");
         return res.json({ isBanned: false, warning: "Security check skipped due to missing config." });
       }
-      const db = admin.firestore();
+
+      // Read database ID from config
+      let databaseId = "(default)";
+      try {
+        const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+        if (fs.existsSync(configPath)) {
+          const config = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+          databaseId = config.firestoreDatabaseId || "(default)";
+        }
+      } catch (e) {
+        console.warn("Could not read firestoreDatabaseId from config, defaulting to (default)");
+      }
+
+      const db = getFirestore(adminInstance, databaseId);
       
       const usersRef = db.collection("users");
       const snapshot = await usersRef.where("deviceId", "==", deviceId).get();
@@ -184,13 +210,11 @@ async function startServer() {
     }
 
     try {
-      const { GoogleGenAI } = await import("@google/genai");
-      const ai = new GoogleGenAI({ apiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: message,
-        config: {
-          systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
+      const { GoogleGenerativeAI } = await import("@google/generative-ai");
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-flash", // Using 1.5 Flash as a reliable fallback/standard
+        systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
 
 STRICT PROTOCOLS:
 1. NEVER give the final answer or a full solution directly.
@@ -204,14 +228,15 @@ STRICT PROTOCOLS:
 6. TONE: Encouraging, patient, and intellectually stimulating.
 
 If the student is completely lost, give a conceptual hint rather than a calculation step.`,
-          temperature: 0.7,
-        }
       });
 
-      res.json({ reply: response.text || "I'm having trouble thinking." });
+      const result = await model.generateContent(message);
+      const responseText = result.response.text();
+
+      res.json({ reply: responseText || "I'm having trouble thinking." });
     } catch (err: any) {
-      console.error("AI Proxy Error:", err.message);
-      res.status(500).json({ error: err.message });
+      console.error("AI Proxy Error details:", err);
+      res.status(500).json({ error: err.message || "Failed to generate AI response" });
     }
   });
 
