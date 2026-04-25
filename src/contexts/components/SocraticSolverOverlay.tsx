@@ -11,8 +11,8 @@ import {
   Loader2,
   BookOpen
 } from 'lucide-react';
-import { askAI } from '../lib/externalAi';
-import { chatStream, type Message } from '../lib/gemini';
+import { askAI } from '../../lib/externalAi';
+import { chatStream, type Message } from '../../lib/gemini';
 import { MathInput } from './MathInput';
 import { ChatBubble } from './ChatBubble';
 import { cn } from '@/lib/utils';

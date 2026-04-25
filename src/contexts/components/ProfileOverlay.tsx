@@ -13,11 +13,11 @@ import {
   CreditCard,
   Volume2
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db } from '../../lib/firebase';
 import { cn } from '@/lib/utils';
-import { speak } from '../lib/speech';
+import { speak } from '../../lib/speech';
 
 interface ProfileOverlayProps {
   isOpen: boolean;

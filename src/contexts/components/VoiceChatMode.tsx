@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Mic, MicOff, X, Volume2, MessageSquare, GraduationCap } from "lucide-react";
-import { speak, stopSpeaking } from "../lib/speech";
-import { askAI } from "../lib/externalAi";
-import { type Message } from "../lib/gemini";
+import { speak, stopSpeaking } from "../../lib/speech";
+import { askAI } from "../../lib/externalAi";
+import { type Message } from "../../lib/gemini";
 import { cn } from "@/lib/utils";
 
 interface VoiceChatModeProps {

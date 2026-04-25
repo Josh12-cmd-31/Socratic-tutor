@@ -157,7 +157,13 @@ async function startServer() {
         console.warn("Could not read firestoreDatabaseId from config, defaulting to (default)");
       }
 
-      const db = getFirestore(adminInstance, databaseId);
+      let db;
+      try {
+        db = getFirestore(adminInstance, databaseId);
+      } catch (e) {
+        console.warn(`Database ${databaseId} not found or error, falling back to default`);
+        db = getFirestore(adminInstance);
+      }
       
       const usersRef = db.collection("users");
       const snapshot = await usersRef.where("deviceId", "==", deviceId).get();
@@ -210,11 +216,22 @@ async function startServer() {
     }
 
     try {
-      const { GoogleGenerativeAI } = await import("@google/generative-ai");
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({
-        model: "gemini-1.5-flash", // Using 1.5 Flash as a reliable fallback/standard
-        systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
+      const { GoogleGenAI } = await import("@google/genai");
+      
+      const cleanApiKey = apiKey.trim().replace(/^["']|["']$/g, "");
+      
+      if (cleanApiKey === "MY_GEMINI_API_KEY" || !cleanApiKey) {
+        return res.status(503).json({ 
+          error: "Gemini API key is not configured. Please set a valid GEMINI_API_KEY in the Secrets panel." 
+        });
+      }
+
+      const ai = new GoogleGenAI({ apiKey: cleanApiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: [{ role: "user", parts: [{ text: message }] }],
+        config: {
+          systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
 
 STRICT PROTOCOLS:
 1. NEVER give the final answer or a full solution directly.
@@ -228,16 +245,20 @@ STRICT PROTOCOLS:
 6. TONE: Encouraging, patient, and intellectually stimulating.
 
 If the student is completely lost, give a conceptual hint rather than a calculation step.`,
+          temperature: 0.7,
+        }
       });
 
-      const result = await model.generateContent(message);
-      const responseText = result.response.text();
-
-      res.json({ reply: responseText || "I'm having trouble thinking." });
+      res.json({ reply: response.text || "I'm having trouble thinking." });
     } catch (err: any) {
       console.error("AI Proxy Error details:", err);
       res.status(500).json({ error: err.message || "Failed to generate AI response" });
     }
+  });
+
+  // Fallback for missing API routes
+  app.all("/api/*", (req, res) => {
+    res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
   });
 
   // Vite middleware for development

@@ -13,12 +13,24 @@ export async function askAI(message: string): Promise<string> {
     });
 
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({ error: "Unknown gateway error" }));
+      const text = await res.text();
+      let errorData;
+      try {
+        errorData = JSON.parse(text);
+      } catch (e) {
+        errorData = { error: `Server Error ${res.status}: ${text.substring(0, 100)}` };
+      }
       throw new Error(errorData.error || `Server Error: ${res.status}`);
     }
 
-    const data = await res.json();
-    return data.reply;
+    const text = await res.text();
+    try {
+      const data = JSON.parse(text);
+      return data.reply;
+    } catch (e) {
+      console.error("Failed to parse JSON response:", text.substring(0, 200));
+      throw new Error("Invalid response from server");
+    }
   } catch (error) {
     console.error("Socratic AI Error:", error);
     throw error;

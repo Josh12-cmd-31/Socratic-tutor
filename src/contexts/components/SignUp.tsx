@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Lock, LogIn, ArrowRight, GraduationCap } from 'lucide-react';
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-import { auth } from '../lib/firebase';
+import { Mail, Lock, User, UserPlus, ArrowRight, GraduationCap } from 'lucide-react';
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
 import { cn } from '@/lib/utils';
 
-interface LoginProps {
-  onSwitchToSignUp: () => void;
+interface SignUpProps {
+  onSwitchToLogin: () => void;
 }
 
-export function Login({ onSwitchToSignUp }: LoginProps) {
+export function SignUp({ onSwitchToLogin }: SignUpProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
@@ -27,31 +29,41 @@ export function Login({ onSwitchToSignUp }: LoginProps) {
     }
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      if (!userCredential.user.emailVerified) {
-        await auth.signOut();
-        setError('Please verify your email before signing in. Check your inbox for the verification link.');
-      }
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName: name });
+      await sendEmailVerification(userCredential.user);
+      setSuccess(true);
     } catch (err: any) {
-      setError(err.message || 'Failed to login');
+      setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleGoogleLogin = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      const userCredential = await signInWithPopup(auth, provider);
-      // Google users are usually pre-verified, but let's be safe
-      if (!userCredential.user.emailVerified) {
-        await auth.signOut();
-        setError('Please verify your email associated with your Google account.');
-      }
-    } catch (err: any) {
-      setError(err.message || 'Failed to login with Google');
-    }
-  };
+  if (success) {
+    return (
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="w-full max-w-md p-8 bg-white rounded-3xl shadow-2xl border border-indigo-100 text-center space-y-6"
+      >
+        <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto">
+          <Mail size={40} />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">Check your email</h2>
+        <p className="text-slate-600">
+          We've sent a verification link to <span className="font-bold text-indigo-600">{email}</span>. 
+          Please verify your email to access your Socratic tutor.
+        </p>
+        <button 
+          onClick={onSwitchToLogin}
+          className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all"
+        >
+          Go to Sign In
+        </button>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div 
@@ -63,11 +75,26 @@ export function Login({ onSwitchToSignUp }: LoginProps) {
         <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-100 mb-4">
           <GraduationCap size={32} />
         </div>
-        <h1 className="text-2xl font-bold text-slate-800">Welcome Back</h1>
-        <p className="text-slate-500 text-sm">Sign in to continue your Socratic journey</p>
+        <h1 className="text-2xl font-bold text-slate-800">Create Account</h1>
+        <p className="text-slate-500 text-sm">Join the Socratic Math Community</p>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleSignUp} className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Full Name</label>
+          <div className="relative group">
+            <User className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-600 transition-colors" size={18} />
+            <input 
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 transition-all font-medium text-slate-700"
+              placeholder="John Doe"
+              required
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
           <label className="text-xs font-bold text-slate-400 uppercase tracking-widest pl-1">Email Address</label>
           <div className="relative group">
@@ -92,7 +119,8 @@ export function Login({ onSwitchToSignUp }: LoginProps) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-600 transition-all font-medium text-slate-700"
-              placeholder="••••••••"
+              placeholder="Min. 10 characters"
+              min={10}
               required
             />
           </div>
@@ -112,36 +140,22 @@ export function Login({ onSwitchToSignUp }: LoginProps) {
             loading && "opacity-70 cursor-not-allowed"
           )}
         >
-          {loading ? "Authenticating..." : (
+          {loading ? "Creating Account..." : (
             <>
-              Sign In <LogIn size={18} />
+              Sign Up <UserPlus size={18} />
             </>
           )}
         </button>
       </form>
 
-      <div className="mt-6 flex flex-col items-center gap-4">
-        <div className="flex items-center gap-4 w-full">
-          <div className="h-px bg-slate-100 flex-1"></div>
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Or continue with</span>
-          <div className="h-px bg-slate-100 flex-1"></div>
-        </div>
-
-        <button
-          onClick={handleGoogleLogin}
-          className="w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold transition-all hover:bg-slate-50 flex items-center justify-center gap-2"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" className="w-5 h-5" alt="Google" />
-          Google
-        </button>
-
-        <p className="text-sm text-slate-500 mt-4">
-          Don't have an account?{" "}
+      <div className="mt-6 flex flex-col items-center">
+        <p className="text-sm text-slate-500">
+          Already have an account?{" "}
           <button 
-            onClick={onSwitchToSignUp}
+            onClick={onSwitchToLogin}
             className="text-indigo-600 font-bold hover:underline"
           >
-            Sign Up Free
+            Sign In
           </button>
         </p>
       </div>

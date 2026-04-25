@@ -11,7 +11,7 @@ import {
   Search,
   BookOpen
 } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../AuthContext';
 import { 
   collection, 
   query, 
@@ -22,8 +22,8 @@ import {
   doc, 
   Timestamp 
 } from 'firebase/firestore';
-import { db, handleFirestoreError } from '../lib/firebase';
-import { type Message } from '../lib/gemini';
+import { db, handleFirestoreError } from '../../lib/firebase';
+import { type Message } from '../../lib/gemini';
 import { cn } from '@/lib/utils';
 
 interface SavedConversation {
@@ -172,13 +172,20 @@ export function HistoryOverlay({ isOpen, onClose, onSelectConversation }: Histor
                 </div>
               ) : (
                 filteredConversations.map((convo) => (
-                  <motion.button
+                  <motion.div
                     layout
                     key={convo.id}
                     onClick={() => onSelectConversation(convo)}
-                    className="w-full text-left p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-50/50 transition-all group relative overflow-hidden"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        onSelectConversation(convo);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="w-full text-left p-4 bg-white rounded-2xl border border-slate-100 hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-50/50 transition-all group relative overflow-hidden cursor-pointer"
                   >
-                    <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-all">
+                    <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-all z-10">
                       <button 
                         onClick={(e) => handleDelete(e, convo.id)}
                         className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
@@ -202,7 +209,7 @@ export function HistoryOverlay({ isOpen, onClose, onSelectConversation }: Histor
                         {convo.messages[convo.messages.length - 1]?.content.substring(0, 80)}...
                       </p>
                     </div>
-                  </motion.button>
+                  </motion.div>
                 ))
               )}
             </div>

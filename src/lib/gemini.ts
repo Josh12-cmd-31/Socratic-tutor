@@ -1,7 +1,16 @@
 import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { MATHEMATICAL_GLOSSARY } from "./glossary";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || "" });
+let ai: any = null;
+function getAI() {
+  if (!ai) {
+    // In Vite, environment variables are in import.meta.env
+    // We try multiple sources, but ideally this should be proxied
+    const key = (import.meta as any).env?.VITE_GEMINI_API_KEY || "";
+    ai = new GoogleGenAI({ apiKey: key });
+  }
+  return ai;
+}
 
 export interface Message {
   role: "user" | "model";
@@ -49,6 +58,7 @@ export async function chatStream(messages: Message[], onChunk: (text: string) =>
   });
 
   try {
+    const ai = getAI();
     const responseStream = await ai.models.generateContentStream({
       model,
       contents,
