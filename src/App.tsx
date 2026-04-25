@@ -144,9 +144,15 @@ export default function App() {
       const reply = await askAI(content);
       fullContent = reply;
       setCurrentStreamedText(fullContent);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      fullContent = "I'm sorry, I encountered an error. Could you try rephrasing that?";
+      if (err.message?.includes("API key")) {
+        fullContent = "I'm having trouble connecting to my AI brain. Please verify the GEMINI_API_KEY in the project settings!";
+      } else if (err.message?.includes("Invalid response")) {
+        fullContent = "Thinking... wait, the server is just warming up. Take a deep breath and try in 3 seconds!";
+      } else {
+        fullContent = "I'm sorry, I encountered an error. Could you try rephrasing that?";
+      }
     } finally {
       setIsStreaming(false);
       const finalContent = fullContent || "I'm here to help! Could you please try rephrasing that?";

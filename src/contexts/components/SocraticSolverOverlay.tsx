@@ -80,9 +80,15 @@ export function SocraticSolverOverlay({ isOpen, onClose }: SocraticSolverOverlay
       const reply = await askAI(content);
       fullContent = reply;
       setCurrentStreamedText(fullContent);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      fullContent = "I'm sorry, I encountered an issue. Let's try that step again.";
+      if (err.message?.includes("API key")) {
+        fullContent = "I'm having trouble connecting to my AI brain. Please make sure the GEMINI_API_KEY is correctly set in the project secrets.";
+      } else if (err.message?.includes("Invalid response")) {
+        fullContent = "Thinking space is a bit crowded right now. Please wait a moment for the server to stabilize and try again.";
+      } else {
+        fullContent = "I'm sorry, I encountered an issue. Let's try that step again.";
+      }
     } finally {
       setIsStreaming(false);
       const finalContent = fullContent || "Let's regroup. What do you think the first step is?";

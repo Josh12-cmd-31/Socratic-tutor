@@ -228,7 +228,7 @@ async function startServer() {
 
       const ai = new GoogleGenAI({ apiKey: cleanApiKey });
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
+        model: "gemini-1.5-flash",
         contents: [{ role: "user", parts: [{ text: message }] }],
         config: {
           systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
