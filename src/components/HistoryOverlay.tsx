@@ -22,7 +22,7 @@ import {
   doc, 
   Timestamp 
 } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError } from '../lib/firebase';
 import { type Message } from '../lib/gemini';
 import { cn } from '@/lib/utils';
 
@@ -49,9 +49,10 @@ export function HistoryOverlay({ isOpen, onClose, onSelectConversation }: Histor
   const fetchHistory = async () => {
     if (!user) return;
     setIsLoading(true);
+    const path = 'conversations';
     try {
       const q = query(
-        collection(db, 'conversations'),
+        collection(db, path),
         where('userId', '==', user.uid),
         orderBy('createdAt', 'desc')
       );
@@ -61,7 +62,10 @@ export function HistoryOverlay({ isOpen, onClose, onSelectConversation }: Histor
         ...doc.data()
       })) as SavedConversation[];
       setConversations(docs);
-    } catch (err) {
+    } catch (err: any) {
+      if (err.message?.includes('permission')) {
+        handleFirestoreError(err, 'list', path);
+      }
       console.error("Failed to fetch history:", err);
     } finally {
       setIsLoading(false);
@@ -78,10 +82,14 @@ export function HistoryOverlay({ isOpen, onClose, onSelectConversation }: Histor
     e.stopPropagation();
     if (!confirm("Are you sure you want to delete this session?")) return;
     
+    const path = `conversations/${id}`;
     try {
       await deleteDoc(doc(db, 'conversations', id));
       setConversations(prev => prev.filter(c => c.id !== id));
-    } catch (err) {
+    } catch (err: any) {
+      if (err.message?.includes('permission')) {
+        handleFirestoreError(err, 'delete', path);
+      }
       console.error("Delete failed:", err);
     }
   };

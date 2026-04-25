@@ -44,30 +44,26 @@ service cloud.firestore {
       return data.uid == request.auth.uid &&
              data.email is string && data.email.size() <= 256 &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
-             (!('isPremium' in data) || data.isPremium is bool);
+             (!('isPremium' in data) || data.isPremium is bool) &&
+             (!('voiceGender' in data) || (data.voiceGender in ['male', 'female'])) &&
+             (!('speechRate' in data) || (data.speechRate is number && data.speechRate >= 0.1 && data.speechRate <= 5.0)) &&
+             (!('speechPitch' in data) || (data.speechPitch is number && data.speechPitch >= 0.1 && data.speechPitch <= 2.0));
     }
 
     function isNotBanned(userId) {
-      // We check if the user document says they are banned
-      // However, get() in rules costs money and is O(n), so for 'users' collection we can check incoming()/existing()
-      // For other collections, we'd need to check the user record or rely on a custom claim (which we don't have yet for banning)
-      // Since we already check isOwner, and the owner is the one being checked, we can check resource.data for existing docs
-      return !('isBanned' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data) || 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isBanned == false;
+      let userDoc = /databases/$(database)/documents/users/$(userId);
+      return !exists(userDoc) || get(userDoc).data.get('isBanned', false) == false;
     }
 
     // --- Collections ---
     match /users/{userId} {
-      allow get: if (isOwner(userId) || isAdmin()) && isValidId(userId);
+      allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && isValidId(userId) &&
-                       isVerified() &&
-                       incoming().keys().hasAll(['uid', 'email', 'createdAt']) &&
+      allow create: if isOwner(userId) &&
                        incoming().uid == request.auth.uid &&
                        incoming().createdAt == request.time &&
                        isValidUser(incoming());
-      allow update: if (isOwner(userId) || isAdmin()) && isValidId(userId) &&
-                       isVerified() &&
+      allow update: if (isOwner(userId) || isAdmin()) &&
                        // Check that the user is NOT attempting to unban themselves if they were banned
                        (!('isBanned' in existing()) || existing().isBanned == false) &&
                        incoming().uid == existing().uid &&
@@ -81,12 +77,12 @@ service cloud.firestore {
     }
 
     match /payments/{paymentId} {
-      allow create: if isVerified() 
+      allow create: if isSignedIn() 
                     && isNotBanned(request.auth.uid)
                     && incoming().amount is int 
                     && incoming().amount > 0
                     && incoming().userId == request.auth.uid;
-      allow read: if (isVerified() && isNotBanned(request.auth.uid) && resource.data.userId == request.auth.uid) || isAdmin();
+      allow read: if (isSignedIn() && isNotBanned(request.auth.uid) && resource.data.userId == request.auth.uid) || isAdmin();
       allow list: if isAdmin();
     }
 
@@ -97,17 +93,16 @@ service cloud.firestore {
                (!('title' in data) || (data.title is string && data.title.size() <= 200));
       }
 
-      allow create: if isVerified() && isNotBanned(request.auth.uid) && 
-                       isValidId(conversationId) &&
+      allow create: if isSignedIn() && isNotBanned(request.auth.uid) && 
                        incoming().userId == request.auth.uid &&
                        incoming().createdAt == request.time &&
                        isValidConversation(incoming());
       
-      allow get: if isVerified() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get: if isSignedIn() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
       
-      allow list: if isVerified() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
       
-      allow update: if isVerified() && isNotBanned(request.auth.uid) && 
+      allow update: if isSignedIn() && isNotBanned(request.auth.uid) && 
                        (resource.data.userId == request.auth.uid || isAdmin()) &&
                        isValidConversation(incoming()) &&
                        incoming().userId == existing().userId &&
@@ -115,7 +110,7 @@ service cloud.firestore {
                        incoming().updatedAt == request.time &&
                        incoming().diff(existing()).affectedKeys().hasAny(['messages', 'title', 'updatedAt']);
       
-      allow delete: if isVerified() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isSignedIn() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
     }
   }
 }

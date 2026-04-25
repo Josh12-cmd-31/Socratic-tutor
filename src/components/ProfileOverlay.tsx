@@ -10,12 +10,14 @@ import {
   Smartphone,
   Save,
   LogOut,
-  CreditCard
+  CreditCard,
+  Volume2
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { cn } from '@/lib/utils';
+import { speak } from '../lib/speech';
 
 interface ProfileOverlayProps {
   isOpen: boolean;
@@ -40,6 +42,17 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
       console.error("Save failed:", err);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const updateSpeechSetting = async (key: string, value: any) => {
+    if (!user) return;
+    try {
+      await updateDoc(doc(db, 'users', user.uid), {
+        [key]: value
+      });
+    } catch (err) {
+      console.error(`Failed to update ${key}:`, err);
     }
   };
 
@@ -181,6 +194,82 @@ export function ProfileOverlay({ isOpen, onClose }: ProfileOverlayProps) {
                         Your trial allows you to explore all features for 3 days. Upgrade for unlimited lifetime usage.
                       </p>
                     )}
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest px-1">Voice & Speech</h4>
+                  <div className="space-y-6 p-6 bg-slate-50 rounded-[32px] border border-slate-100">
+                    {/* Gender Selection */}
+                    <div className="space-y-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Tutor Voice</p>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => updateSpeechSetting('voiceGender', 'female')}
+                          className={cn(
+                            "flex-1 py-3 rounded-2xl font-bold transition-all border-2",
+                            profile?.voiceGender === 'female' 
+                              ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100" 
+                              : "bg-white border-slate-100 text-slate-600 hover:border-indigo-200"
+                          )}
+                        >
+                          👩‍🏫 Female
+                        </button>
+                        <button 
+                          onClick={() => updateSpeechSetting('voiceGender', 'male')}
+                          className={cn(
+                            "flex-1 py-3 rounded-2xl font-bold transition-all border-2",
+                            profile?.voiceGender === 'male' 
+                              ? "bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-100" 
+                              : "bg-white border-slate-100 text-slate-600 hover:border-indigo-200"
+                          )}
+                        >
+                          👨‍🏫 Male
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Rate Slider */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Speech Rate</p>
+                        <span className="text-xs font-bold text-indigo-600">{profile?.speechRate || 1}x</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value={profile?.speechRate || 1}
+                        onChange={(e) => updateSpeechSetting('speechRate', parseFloat(e.target.value))}
+                        className="w-full accent-indigo-600"
+                      />
+                    </div>
+
+                    {/* Pitch Slider */}
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">Voice Pitch</p>
+                        <span className="text-xs font-bold text-indigo-600">{profile?.speechPitch || 1}</span>
+                      </div>
+                      <input 
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value={profile?.speechPitch || 1}
+                        onChange={(e) => updateSpeechSetting('speechPitch', parseFloat(e.target.value))}
+                        className="w-full accent-indigo-600"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={() => speak("Hello! This is how I'll sound during our lessons.", profile?.voiceGender || 'female', profile?.speechRate || 1, profile?.speechPitch || 1)}
+                      className="w-full py-3 rounded-2xl bg-white border border-slate-200 text-slate-700 font-bold hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Volume2 size={18} />
+                      Test Voice
+                    </button>
                   </div>
                 </section>
               </div>

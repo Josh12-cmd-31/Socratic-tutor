@@ -17,7 +17,8 @@ function getAdmin() {
   if (!adminApp) {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     if (!serviceAccountJson) {
-      throw new Error("FIREBASE_SERVICE_ACCOUNT_JSON is not defined. Please set it in your environment variables.");
+      console.warn("FIREBASE_SERVICE_ACCOUNT_JSON is not defined. Firebase Admin features will be disabled.");
+      return null;
     }
     
     try {
@@ -27,7 +28,7 @@ function getAdmin() {
       });
     } catch (err) {
       console.error("Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON:", err);
-      throw new Error("Invalid FIREBASE_SERVICE_ACCOUNT_JSON format.");
+      return null;
     }
   }
   return adminApp;
@@ -95,13 +96,16 @@ async function startServer() {
       return res.status(400).json({ error: "User ID (uid) is required." });
     }
 
-    // Basic security check: Require a secret to prevent unauthorized claim updates
-    if (adminSecret !== process.env.ADMIN_CLAIM_SECRET) {
+    // Basic security check
+    if (!process.env.ADMIN_CLAIM_SECRET || adminSecret !== process.env.ADMIN_CLAIM_SECRET) {
       return res.status(403).json({ error: "Unauthorized. Invalid admin secret." });
     }
 
     try {
-      getAdmin(); // Ensure initialized
+      const adminInstance = getAdmin(); 
+      if (!adminInstance) {
+        return res.status(503).json({ error: "Admin SDK not configured on server. Missing FIREBASE_SERVICE_ACCOUNT_JSON." });
+      }
       await admin.auth().setCustomUserClaims(uid, {
         admin: true
       });
@@ -122,7 +126,11 @@ async function startServer() {
     }
 
     try {
-      getAdmin();
+      const adminInstance = getAdmin();
+      if (!adminInstance) {
+        console.warn("Skipping device check: FIREBASE_SERVICE_ACCOUNT_JSON is not configured.");
+        return res.json({ isBanned: false, warning: "Security check skipped due to missing config." });
+      }
       const db = admin.firestore();
       
       const usersRef = db.collection("users");
@@ -157,6 +165,52 @@ async function startServer() {
       res.json({ isBanned: false });
     } catch (err: any) {
       console.error("Device Check Error:", err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Socratic AI endpoint
+  app.post("/api/chat", async (req, res) => {
+    const { message } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: "Message is required." });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY is not defined on server.");
+      return res.status(503).json({ error: "AI Service not configured on server." });
+    }
+
+    try {
+      const { GoogleGenAI } = await import("@google/genai");
+      const ai = new GoogleGenAI({ apiKey });
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: message,
+        config: {
+          systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
+
+STRICT PROTOCOLS:
+1. NEVER give the final answer or a full solution directly.
+2. BREAK DOWN complex problems into the smallest possible logical steps.
+3. ASK one guiding question at a time. Wait for the student's input before moving to the next step.
+4. SIMPLIFICATION EXAMPLE (e.g., 2n + 3n - 3m = 12m):
+   - First, ask if they see any "like terms" that can be combined.
+   - Then, ask how they would move terms to one side if needed.
+   - Guide them to realize that 2n + 3n = 5n and -3m becomes +3m when moved.
+5. FORMATTING: Use LaTeX for all math expressions (e.g., $$5n = 15m$$).
+6. TONE: Encouraging, patient, and intellectually stimulating.
+
+If the student is completely lost, give a conceptual hint rather than a calculation step.`,
+          temperature: 0.7,
+        }
+      });
+
+      res.json({ reply: response.text || "I'm having trouble thinking." });
+    } catch (err: any) {
+      console.error("AI Proxy Error:", err.message);
       res.status(500).json({ error: err.message });
     }
   });

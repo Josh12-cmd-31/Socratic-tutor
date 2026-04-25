@@ -38,6 +38,19 @@
         "banReason": {
           "type": "string",
           "description": "Reason for the account ban"
+        },
+        "voiceGender": {
+          "type": "string",
+          "enum": ["male", "female"],
+          "description": "Preferred voice gender for the tutor"
+        },
+        "speechRate": {
+          "type": "number",
+          "description": "Rate of speech for the tutor (0.5 to 2.0)"
+        },
+        "speechPitch": {
+          "type": "number",
+          "description": "Pitch of speech for the tutor (0.5 to 2.0)"
         }
       },
       "required": ["uid", "email", "createdAt"]

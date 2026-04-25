@@ -8,13 +8,15 @@ import { cn } from "@/lib/utils";
 
 interface VoiceChatModeProps {
   gender: "male" | "female";
+  rate: number;
+  pitch: number;
   onClose: () => void;
   history: Message[];
   onNewUserMessage: (content: string) => void;
   onNewAIResponse: (content: string) => void;
 }
 
-export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNewAIResponse }: VoiceChatModeProps) {
+export function VoiceChatMode({ gender, rate, pitch, onClose, history, onNewUserMessage, onNewAIResponse }: VoiceChatModeProps) {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [isThinking, setIsThinking] = useState(false);
@@ -27,7 +29,7 @@ export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNe
   useEffect(() => {
     // Initial Greeting
     const intro = `Hello! I am your Socratic math tutor. I'm so happy to study with you one-on-one. What shall we explore together?`;
-    speak(intro, gender);
+    speak(intro, gender, rate, pitch);
 
     // Setup Speech Recognition if available
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -109,7 +111,7 @@ export function VoiceChatMode({ gender, onClose, history, onNewUserMessage, onNe
   useEffect(() => {
     if (!isThinking && currentResponse) {
       const cleanText = currentResponse.replace(/\[\[(.*?)\]\]/g, (_, p1) => p1).replace(/[#*`_]/g, '');
-      speak(cleanText, gender);
+      speak(cleanText, gender, rate, pitch);
       onNewAIResponse(currentResponse);
       setTranscript("");
     }

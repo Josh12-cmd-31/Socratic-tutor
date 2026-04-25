@@ -37,6 +37,15 @@ export default function App() {
   const [currentStreamedText, setCurrentStreamedText] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedVoice, setSelectedVoice] = useState<"male" | "female">("female");
+
+  useEffect(() => {
+    if (profile?.voiceGender) {
+      setSelectedVoice(profile.voiceGender);
+    }
+  }, [profile?.voiceGender]);
+
+  const speechRate = profile?.speechRate || 1;
+  const speechPitch = profile?.speechPitch || 1;
   const [isVoiceChatMode, setIsVoiceChatMode] = useState(false);
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [isTopicsOpen, setIsTopicsOpen] = useState(false);
@@ -99,7 +108,7 @@ export default function App() {
     if (user && profile && messages.length === 0 && !authLoading) {
       // Small delay to ensure voices are loaded and browser allows audio
       const timer = setTimeout(() => {
-        speak(WELCOME_MESSAGES[0], selectedVoice);
+        speak(WELCOME_MESSAGES[0], selectedVoice, speechRate, speechPitch);
       }, 1000);
       return () => clearTimeout(timer);
     }
@@ -110,12 +119,15 @@ export default function App() {
     setSelectedVoice(voice);
     setIsVoiceChatMode(true);
     stopSpeaking();
+    if (user) {
+      updateDoc(doc(db, 'users', user.uid), { voiceGender: voice });
+    }
   };
 
   const speakLastMessage = (content: string) => {
     // Clean markdown before speaking
     const cleanText = content.replace(/\[\[(.*?)\]\]/g, (_, p1) => p1).replace(/[#*`_]/g, '');
-    speak(cleanText, selectedVoice);
+    speak(cleanText, selectedVoice, speechRate, speechPitch);
   };
 
   const handleSendMessage = async (content: string, image?: string) => {
@@ -174,26 +186,35 @@ export default function App() {
   const saveConversation = async (msgs: Message[]) => {
     if (!user) return;
     
-    const title = msgs[0]?.content.substring(0, 40) || "Tutoring Session";
+    const title = msgs[0]?.content?.substring(0, 40) || "Tutoring Session";
+    
+    // Firestore does not allow 'undefined' values.
+    // We must ensure the messages array doesn't have undefined fields.
+    const sanitizedMessages = msgs.map(m => {
+      const sanitized: any = { role: m.role, content: m.content || "" };
+      if (m.image) sanitized.image = m.image;
+      return sanitized;
+    });
     
     try {
-      if (currentConversationId) {
-        await updateDoc(doc(db, 'conversations', currentConversationId), {
-          messages: msgs,
+      if (currentConversationId && typeof currentConversationId === 'string') {
+        const convoRef = doc(db, 'conversations', currentConversationId);
+        await updateDoc(convoRef, {
+          messages: sanitizedMessages,
           updatedAt: serverTimestamp()
         });
       } else {
         const docRef = await addDoc(collection(db, 'conversations'), {
           userId: user.uid,
           title,
-          messages: msgs,
+          messages: sanitizedMessages,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp()
         });
         setCurrentConversationId(docRef.id);
       }
     } catch (err) {
-      console.error("Auto-save failed:", err);
+      console.error("Auto-save failed details:", err);
     }
   };
 
@@ -612,6 +633,8 @@ export default function App() {
         {isVoiceChatMode && (
           <VoiceChatMode 
             gender={selectedVoice} 
+            rate={speechRate}
+            pitch={speechPitch}
             onClose={() => setIsVoiceChatMode(false)}
             history={messages}
             onNewUserMessage={(content) => {

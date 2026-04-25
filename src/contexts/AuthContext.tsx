@@ -84,7 +84,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               createdAt: serverTimestamp(),
               isPremium: false,
               deviceId: deviceId,
-              isBanned: false
+              isBanned: false,
+              voiceGender: 'female',
+              speechRate: 1,
+              speechPitch: 1
             };
             await setDoc(userDoc, newProfile);
             currentProfile = newProfile;

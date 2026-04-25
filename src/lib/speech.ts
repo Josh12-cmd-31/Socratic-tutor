@@ -1,6 +1,6 @@
 export type VoiceGender = "male" | "female";
 
-export function speak(text: string, gender: VoiceGender) {
+export function speak(text: string, gender: VoiceGender, rate: number = 1, pitch: number = 1) {
   if (!window.speechSynthesis) return;
 
   // Cancel any ongoing speech
@@ -24,8 +24,10 @@ export function speak(text: string, gender: VoiceGender) {
     utterance.voice = voice;
   }
 
-  utterance.rate = 1;
-  utterance.pitch = gender === "male" ? 0.9 : 1.1;
+  utterance.rate = rate;
+  // Apply a small gender-based skew if pitch is default 1
+  const basePitch = pitch === 1 ? (gender === "male" ? 0.9 : 1.1) : pitch;
+  utterance.pitch = basePitch;
   utterance.volume = 1;
 
   window.speechSynthesis.speak(utterance);
