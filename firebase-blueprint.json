@@ -41,12 +41,46 @@
         }
       },
       "required": ["uid", "email", "createdAt"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A saved chat session between student and Socratic Tutor",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "The student who owns this conversation"
+        },
+        "title": {
+          "type": "string",
+          "description": "User-defined or auto-generated title for the session"
+        },
+        "messages": {
+          "type": "array",
+          "description": "Serialized chat history"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When the chat was saved"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Last time this chat was modified"
+        }
+      },
+      "required": ["userId", "messages", "createdAt"]
     }
   },
   "firestore": {
     "users/{userId}": {
       "schema": "User",
       "description": "Collection of student profiles"
+    },
+    "conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Storage for saved tutoring sessions"
     },
     "payments/{paymentId}": {
       "schema": {

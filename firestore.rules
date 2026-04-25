@@ -89,5 +89,33 @@ service cloud.firestore {
       allow read: if (isVerified() && isNotBanned(request.auth.uid) && resource.data.userId == request.auth.uid) || isAdmin();
       allow list: if isAdmin();
     }
+
+    match /conversations/{conversationId} {
+      function isValidConversation(data) {
+        return data.userId == request.auth.uid &&
+               data.messages is list &&
+               (!('title' in data) || (data.title is string && data.title.size() <= 200));
+      }
+
+      allow create: if isVerified() && isNotBanned(request.auth.uid) && 
+                       isValidId(conversationId) &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().createdAt == request.time &&
+                       isValidConversation(incoming());
+      
+      allow get: if isVerified() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow list: if isVerified() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow update: if isVerified() && isNotBanned(request.auth.uid) && 
+                       (resource.data.userId == request.auth.uid || isAdmin()) &&
+                       isValidConversation(incoming()) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       incoming().updatedAt == request.time &&
+                       incoming().diff(existing()).affectedKeys().hasAny(['messages', 'title', 'updatedAt']);
+      
+      allow delete: if isVerified() && isNotBanned(request.auth.uid) && (resource.data.userId == request.auth.uid || isAdmin());
+    }
   }
 }

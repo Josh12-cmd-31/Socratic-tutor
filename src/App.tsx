@@ -8,6 +8,8 @@ import { VoiceChatMode } from './components/VoiceChatMode';
 import { SocraticSolverOverlay } from './components/SocraticSolverOverlay';
 import { PaymentButton } from './components/PaymentButton';
 import { TopicsOverlay } from './components/TopicsOverlay';
+import { ProfileOverlay } from './components/ProfileOverlay';
+import { HistoryOverlay } from './components/HistoryOverlay';
 import { Login } from './components/Login';
 import { SignUp } from './components/SignUp';
 import { useAuth } from './contexts/AuthContext';
@@ -19,7 +21,7 @@ import { speak, stopSpeaking } from './lib/speech';
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import { getTrialState, setPaidStatus, type TrialState } from './lib/trial';
 import confetti from 'canvas-confetti';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, collection, addDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { db } from './lib/firebase';
 
 const WELCOME_MESSAGES = [
@@ -39,6 +41,9 @@ export default function App() {
   const [isGlossaryOpen, setIsGlossaryOpen] = useState(false);
   const [isTopicsOpen, setIsTopicsOpen] = useState(false);
   const [isSolverOpen, setIsSolverOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [initialGlossaryTerm, setInitialGlossaryTerm] = useState<string | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'cancel' | null>(null);
   const [trial, setTrial] = useState<TrialState>(getTrialState(profile?.createdAt));
@@ -124,7 +129,6 @@ export default function App() {
     let fullContent = "";
     
     try {
-      // Switching to External Socratic API
       const reply = await askAI(content);
       fullContent = reply;
       setCurrentStreamedText(fullContent);
@@ -134,11 +138,18 @@ export default function App() {
     } finally {
       setIsStreaming(false);
       const finalContent = fullContent || "I'm here to help! Could you please try rephrasing that?";
-      setMessages((prev) => [...prev, { role: "model", content: finalContent }]);
+      const tutorResponse: Message = { role: "model", content: finalContent };
+      const finalMessages = [...updatedMessages, tutorResponse];
+      setMessages(finalMessages);
       setCurrentStreamedText("");
       
       // Automatically speak the tutor's response
       speakLastMessage(finalContent);
+
+      // Save to history
+      if (user) {
+        saveConversation(finalMessages);
+      }
 
       const successKeywords = ["correct", "great job", "bingo", "exactly", "you got it", "excellent"];
       if (successKeywords.some(word => finalContent.toLowerCase().includes(word))) {
@@ -156,7 +167,41 @@ export default function App() {
     if (confirm("Would you like to start a fresh lesson?")) {
       stopSpeaking();
       setMessages([]);
+      setCurrentConversationId(null);
     }
+  };
+
+  const saveConversation = async (msgs: Message[]) => {
+    if (!user) return;
+    
+    const title = msgs[0]?.content.substring(0, 40) || "Tutoring Session";
+    
+    try {
+      if (currentConversationId) {
+        await updateDoc(doc(db, 'conversations', currentConversationId), {
+          messages: msgs,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        const docRef = await addDoc(collection(db, 'conversations'), {
+          userId: user.uid,
+          title,
+          messages: msgs,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        setCurrentConversationId(docRef.id);
+      }
+    } catch (err) {
+      console.error("Auto-save failed:", err);
+    }
+  };
+
+  const loadConversation = (convo: any) => {
+    stopSpeaking();
+    setMessages(convo.messages);
+    setCurrentConversationId(convo.id);
+    setIsHistoryOpen(false);
   };
 
   const openGlossary = (term?: string) => {
@@ -283,6 +328,13 @@ export default function App() {
           >
             <LayoutGrid size={20} />
           </button>
+          <button 
+            onClick={() => setIsHistoryOpen(true)}
+            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all"
+            title="Chat History"
+          >
+            <Clock size={20} />
+          </button>
           <div className="w-8 h-8 md:w-10 md:h-10 bg-indigo-600 rounded-lg md:rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200 mr-1">
             <GraduationCap size={20} className="md:hidden" />
             <GraduationCap size={24} className="hidden md:block" />
@@ -341,17 +393,17 @@ export default function App() {
           <div className="w-px h-8 bg-slate-100 hidden md:block mx-2"></div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:block text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{profile?.isPremium ? 'Premium' : 'Student'}</p>
-              <p className="text-xs font-bold text-slate-700 truncate max-w-[100px]">{user.displayName || user.email?.split('@')[0]}</p>
-            </div>
-            
             <button
-              onClick={() => logout()}
-              className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
-              title="Logout"
+              onClick={() => setIsProfileOpen(true)}
+              className="flex items-center gap-3 p-1 pr-3 hover:bg-slate-50 rounded-2xl transition-all border border-transparent hover:border-slate-100"
             >
-              <LogOut size={20} />
+              <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
+                {profile?.displayName?.[0] || user.email?.[0].toUpperCase()}
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{profile?.isPremium ? 'Premium' : 'Student'}</p>
+                <p className="text-xs font-bold text-slate-700 truncate max-w-[100px]">{profile?.displayName || user.email?.split('@')[0]}</p>
+              </div>
             </button>
           </div>
 
@@ -543,6 +595,17 @@ export default function App() {
       <SocraticSolverOverlay 
         isOpen={isSolverOpen}
         onClose={() => setIsSolverOpen(false)}
+      />
+
+      <ProfileOverlay
+        isOpen={isProfileOpen}
+        onClose={() => setIsProfileOpen(false)}
+      />
+
+      <HistoryOverlay
+        isOpen={isHistoryOpen}
+        onClose={() => setIsHistoryOpen(false)}
+        onSelectConversation={loadConversation}
       />
 
       <AnimatePresence>
