@@ -201,61 +201,6 @@ async function startServer() {
     }
   });
 
-  // Socratic AI endpoint
-  app.post("/api/chat", async (req, res) => {
-    const { message } = req.body;
-    
-    if (!message) {
-      return res.status(400).json({ error: "Message is required." });
-    }
-
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      console.error("GEMINI_API_KEY is not defined on server.");
-      return res.status(503).json({ error: "AI Service not configured on server." });
-    }
-
-    try {
-      const { GoogleGenAI } = await import("@google/genai");
-      
-      const cleanApiKey = apiKey.trim().replace(/^["']|["']$/g, "");
-      
-      if (cleanApiKey === "MY_GEMINI_API_KEY" || !cleanApiKey) {
-        return res.status(503).json({ 
-          error: "Gemini API key is not configured. Please set a valid GEMINI_API_KEY in the Secrets panel." 
-        });
-      }
-
-      const ai = new GoogleGenAI({ apiKey: cleanApiKey });
-      const response = await ai.models.generateContent({
-        model: "gemini-1.5-flash",
-        contents: [{ role: "user", parts: [{ text: message }] }],
-        config: {
-          systemInstruction: `You are a Socratic Math Tutor. Your mission is to lead students to understanding through questioning, observation, and analysis.
-
-STRICT PROTOCOLS:
-1. NEVER give the final answer or a full solution directly.
-2. BREAK DOWN complex problems into the smallest possible logical steps.
-3. ASK one guiding question at a time. Wait for the student's input before moving to the next step.
-4. SIMPLIFICATION EXAMPLE (e.g., 2n + 3n - 3m = 12m):
-   - First, ask if they see any "like terms" that can be combined.
-   - Then, ask how they would move terms to one side if needed.
-   - Guide them to realize that 2n + 3n = 5n and -3m becomes +3m when moved.
-5. FORMATTING: Use LaTeX for all math expressions (e.g., $$5n = 15m$$).
-6. TONE: Encouraging, patient, and intellectually stimulating.
-
-If the student is completely lost, give a conceptual hint rather than a calculation step.`,
-          temperature: 0.7,
-        }
-      });
-
-      res.json({ reply: response.text || "I'm having trouble thinking." });
-    } catch (err: any) {
-      console.error("AI Proxy Error details:", err);
-      res.status(500).json({ error: err.message || "Failed to generate AI response" });
-    }
-  });
-
   // Fallback for missing API routes
   app.all("/api/*", (req, res) => {
     res.status(404).json({ error: `API route not found: ${req.method} ${req.url}` });
